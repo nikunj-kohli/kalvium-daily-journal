@@ -1,0 +1,18 @@
+name: Schedule Test
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "*/5 * * * *"
+      timezone: "Asia/Kolkata"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Scheduler worked
+        run: |
+          echo "SCHEDULE WORKED"
+          date
