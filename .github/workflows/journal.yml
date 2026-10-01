@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "30 12 * * 1-5"
+    - cron: "22 10 * * 1-6"
 
 jobs:
   submit-journal:
