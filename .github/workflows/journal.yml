@@ -1,0 +1,36 @@
+name: Kalvium Daily Journal
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "30 12 * * 1-5"
+
+jobs:
+  submit-journal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Restore Google authentication
+        env:
+          PLAYWRIGHT_AUTH: ${{ secrets.PLAYWRIGHT_AUTH }}
+        run: |
+          echo "$PLAYWRIGHT_AUTH" | base64 --decode > auth.json
+
+      - name: Submit daily journal
+        run: node submit.js
