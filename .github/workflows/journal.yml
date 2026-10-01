@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "22 10 * * 1-6"
+    - cron: "25 10 * * 1-6"
+      timezone: Asia/Kolkata
 
 jobs:
   submit-journal:
