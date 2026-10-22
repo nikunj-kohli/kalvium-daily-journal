@@ -50,7 +50,7 @@ const fs = require("fs");
       if (await emailCheckbox.isVisible({ timeout: 5000 })) {
         const isChecked = await emailCheckbox.isChecked();
         if (!isChecked) {
-          await emailCheckbox.check();
+          await emailCheckbox.click();
           console.log("Checked record email checkbox.");
         } else {
           console.log("Record email checkbox already checked.");
@@ -60,19 +60,19 @@ const fs = require("fs");
       console.log("Notice: Record email checkbox not displayed or already checked.");
     }
 
-    // Working day radio button
+    // Working day radio button: uniquely match "It was a working day, and I was present"
     const workingDayRadio = page.getByRole("radio", {
-      name: /It was a working day/i
+      name: /and I was present/i
     });
     await workingDayRadio.waitFor({ state: "visible", timeout: 15000 });
-    await workingDayRadio.check();
-    console.log("Selected: Working day option.");
+    await workingDayRadio.click();
+    console.log("Selected: It was a working day, and I was present.");
 
     // Next button to Page 2
     const nextBtn1 = page.getByRole("button", { name: "Next" });
     await nextBtn1.waitFor({ state: "visible", timeout: 10000 });
     await nextBtn1.click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(2000);
 
     // Page 2: Text inputs
     console.log("Filling daily journal answers...");
@@ -101,16 +101,15 @@ const fs = require("fs");
     const nextBtn2 = page.getByRole("button", { name: "Next" });
     await nextBtn2.waitFor({ state: "visible", timeout: 10000 });
     await nextBtn2.click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(2000);
 
     // Final Page: Submit
     const submitBtn = page.getByRole("button", { name: "Submit" });
     await submitBtn.waitFor({ state: "visible", timeout: 15000 });
     await submitBtn.click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(3000);
 
     console.log("Journal submitted successfully!");
-    await page.waitForTimeout(3000);
   } catch (err) {
     console.error("[ERROR]", err.message);
     try {
