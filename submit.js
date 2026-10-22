@@ -1,55 +1,126 @@
 const { chromium } = require("playwright");
+const fs = require("fs");
 
 (async () => {
+  if (!fs.existsSync("auth.json")) {
+    console.error("[ERROR] auth.json not found! Authentication state is required.");
+    process.exit(1);
+  }
+
   const browser = await chromium.launch({
-    headless: true
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-blink-features=AutomationControlled"
+    ]
   });
 
   const context = await browser.newContext({
-    storageState: "auth.json"
+    storageState: "auth.json",
+    viewport: { width: 1280, height: 800 },
+    userAgent:
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
   });
 
   const page = await context.newPage();
 
-  await page.goto(
-    "https://docs.google.com/forms/d/e/1FAIpQLSc8RRUAG8n8nPB9dm21m_MxwHQ-JuDnEj7GnvwEkWXykkKFuQ/viewform",
-    { waitUntil: "networkidle" }
-  );
+  try {
+    console.log("Navigating to Kalvium journal form...");
+    await page.goto(
+      "https://docs.google.com/forms/d/e/1FAIpQLSc8RRUAG8n8nPB9dm21m_MxwHQ-JuDnEj7GnvwEkWXykkKFuQ/viewform",
+      { waitUntil: "networkidle", timeout: 45000 }
+    );
 
-  // Page 1
-  await page.getByRole('checkbox', { name: 'Record nikunj.kohli.s85@' }).click();
+    const currentUrl = page.url();
+    console.log(`Current page URL: ${currentUrl}`);
 
-  await page.getByRole('radio', {
-    name: 'It was a working day, and I'
-  }).click();
+    // Check if redirected to Google sign-in or verification challenge
+    if (currentUrl.includes("accounts.google.com")) {
+      await page.screenshot({ path: "error.png", fullPage: true });
+      throw new Error(
+        "Google authentication failed or expired: Google redirected to sign-in / verification challenge ('Verify that it's you'). " +
+        "Please run 'node login.js' locally, update the GitHub secret PLAYWRIGHT_AUTH, and re-run."
+      );
+    }
 
-  await page.getByRole('button', { name: 'Next' }).click();
+    // Page 1: Record email checkbox (if present)
+    const emailCheckbox = page.getByRole("checkbox", { name: /Record .* as the email/i });
+    try {
+      if (await emailCheckbox.isVisible({ timeout: 5000 })) {
+        const isChecked = await emailCheckbox.isChecked();
+        if (!isChecked) {
+          await emailCheckbox.check();
+          console.log("Checked record email checkbox.");
+        } else {
+          console.log("Record email checkbox already checked.");
+        }
+      }
+    } catch (e) {
+      console.log("Notice: Record email checkbox not displayed or already checked.");
+    }
 
-  // Page 2
-  await page.getByRole('textbox', {
-    name: 'What were your key tasks for'
-  }).fill('work');
+    // Working day radio button
+    const workingDayRadio = page.getByRole("radio", {
+      name: /It was a working day/i
+    });
+    await workingDayRadio.waitFor({ state: "visible", timeout: 15000 });
+    await workingDayRadio.check();
+    console.log("Selected: Working day option.");
 
-  await page.getByRole('textbox', {
-    name: 'What challenges/problems did'
-  }).fill('work');
+    // Next button to Page 2
+    const nextBtn1 = page.getByRole("button", { name: "Next" });
+    await nextBtn1.waitFor({ state: "visible", timeout: 10000 });
+    await nextBtn1.click();
+    await page.waitForLoadState("networkidle");
 
-  await page.getByRole('textbox', {
-    name: 'What challenges/problems you'
-  }).fill('NA');
+    // Page 2: Text inputs
+    console.log("Filling daily journal answers...");
+    const keyTasksInput = page.getByRole("textbox", {
+      name: /What were your key tasks/i
+    });
+    await keyTasksInput.waitFor({ state: "visible", timeout: 15000 });
+    await keyTasksInput.fill("work");
 
-  await page.getByRole('textbox', {
-    name: 'What is your plan for the'
-  }).fill('work');
+    const challengesInput = page.getByRole("textbox", {
+      name: /What challenges\/problems did/i
+    });
+    await challengesInput.fill("work");
 
-  await page.getByRole('button', { name: 'Next' }).click();
+    const escalationsInput = page.getByRole("textbox", {
+      name: /What challenges\/problems you/i
+    });
+    await escalationsInput.fill("NA");
 
-  // Final page
-  await page.getByRole('button', { name: 'Submit' }).click();
+    const planInput = page.getByRole("textbox", {
+      name: /What is your plan for the/i
+    });
+    await planInput.fill("work");
 
-  console.log("Journal submitted successfully.");
+    // Next button to Final page
+    const nextBtn2 = page.getByRole("button", { name: "Next" });
+    await nextBtn2.waitFor({ state: "visible", timeout: 10000 });
+    await nextBtn2.click();
+    await page.waitForLoadState("networkidle");
 
-  await page.waitForTimeout(5000);
+    // Final Page: Submit
+    const submitBtn = page.getByRole("button", { name: "Submit" });
+    await submitBtn.waitFor({ state: "visible", timeout: 15000 });
+    await submitBtn.click();
+    await page.waitForLoadState("networkidle");
 
-  await browser.close();
+    console.log("Journal submitted successfully!");
+    await page.waitForTimeout(3000);
+  } catch (err) {
+    console.error("[ERROR]", err.message);
+    try {
+      await page.screenshot({ path: "error.png", fullPage: true });
+      console.log("Saved failure screenshot to error.png");
+    } catch (screenshotErr) {
+      console.error("Could not save screenshot:", screenshotErr.message);
+    }
+    process.exit(1);
+  } finally {
+    await browser.close();
+  }
 })();

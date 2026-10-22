@@ -2,7 +2,6 @@ name: Kalvium Daily Journal
 
 on:
   workflow_dispatch:
-
   schedule:
     - cron: "*/5 * * * *"
 
@@ -30,7 +29,23 @@ jobs:
         env:
           PLAYWRIGHT_AUTH: ${{ secrets.PLAYWRIGHT_AUTH }}
         run: |
+          if [ -z "$PLAYWRIGHT_AUTH" ]; then
+            echo "::error::PLAYWRIGHT_AUTH secret is not set or empty. Please add it under Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
           echo "$PLAYWRIGHT_AUTH" | base64 --decode > auth.json
+          if [ ! -s auth.json ]; then
+            echo "::error::auth.json is empty after decoding PLAYWRIGHT_AUTH. Please check the secret value."
+            exit 1
+          fi
 
       - name: Submit daily journal
         run: node submit.js
+
+      - name: Upload error screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshot
+          path: error.png
+          if-no-files-found: ignore
